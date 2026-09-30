@@ -1880,6 +1880,20 @@ body {
     overflow-y: auto;
 }
 
+/* Keep the newer learning screens stacked so the question stays centered
+   instead of competing for one horizontal row with the answer controls. */
+.visual-math-area,
+.hanzi-game-area {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    justify-content: safe center;
+}
+
+.visual-question-container,
+.hanzi-question-container {
+    width: 100%;
+}
+
 @media (max-width: 430px) {
     .game-header,
     .collection-header {
