@@ -23,8 +23,9 @@ function normalizeUsername(username) {
 }
 
 export class StorageManager {
-    constructor({ fetchImpl = globalThis.fetch, cache = globalThis.localStorage } = {}) {
-        this.fetch = fetchImpl;
+    constructor({ fetchImpl, cache = globalThis.localStorage } = {}) {
+        // Window.fetch is an instance method and must keep the Window receiver.
+        this.fetch = fetchImpl || globalThis.fetch?.bind(globalThis);
         this.cache = cache;
         this.pendingEvents = [];
         this.userName = this.readCache(ACTIVE_USER_KEY) || '小朋友';

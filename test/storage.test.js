@@ -46,3 +46,29 @@ test('storage manager queues learning events and reconciles server responses', a
     assert.ok(calls.some(call => call.url.endsWith('/events')));
     assert.equal(JSON.parse(values.get('pony_math_pending_events')).length, 0);
 });
+
+test('storage manager binds the default fetch receiver', async () => {
+    const { StorageManager } = await import('../js/storage.js');
+    const values = new Map();
+    const cache = {
+        getItem: key => values.get(key) || null,
+        setItem: (key, value) => values.set(key, value)
+    };
+    const originalFetch = globalThis.fetch;
+    let receiver;
+    globalThis.fetch = function fetchWithReceiver(url) {
+        receiver = this;
+        return Promise.resolve(new Response(JSON.stringify({
+            name: '小朋友',
+            data: { id: 'user-1', avatar: '🌈' }
+        }), { status: 200 }));
+    };
+
+    try {
+        const storage = new StorageManager({ cache });
+        await storage.waitUntilReady();
+        assert.equal(receiver, globalThis);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
