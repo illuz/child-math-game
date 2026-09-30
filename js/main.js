@@ -4,7 +4,7 @@ import { GameLogic } from './game.js';
 import { HanziGameLogic } from './hanzi-game.js';
 import { HANZI_DIFFICULTY } from './hanzi-data.js';
 import { soundManager } from './sound.js';
-import { storage } from './storage.js';
+import { AVATAR_OPTIONS, storage } from './storage.js';
 import { ponyRenderer } from './pony.js';
 import { animations } from './animations.js';
 
@@ -16,14 +16,18 @@ class PonyMathGame {
         this.timerInterval = null;
         this.currentDifficulty = null;
         this.currentGameMode = 'math'; // 'math' or 'hanzi'
+        this.selectedAvatar = storage.getAvatar();
 
-        this.init();
+        this.ready = this.init();
     }
 
-    init() {
+    async init() {
         this.cacheElements();
         this.bindEvents();
         this.renderMenuPony();
+        this.updateUserIdentity();
+        await storage.waitUntilReady();
+        this.updateUserIdentity();
         this.updateCollectionCount();
     }
 
@@ -33,6 +37,7 @@ class PonyMathGame {
             menu: document.getElementById('menu-screen'),
             game: document.getElementById('game-screen'),
             collection: document.getElementById('collection-screen'),
+            leaderboard: document.getElementById('leaderboard-screen'),
             hanziDifficulty: document.getElementById('hanzi-difficulty-screen'),
             hanziGame: document.getElementById('hanzi-game-screen')
         };
@@ -42,6 +47,10 @@ class PonyMathGame {
         this.viewCollectionBtn = document.getElementById('view-collection');
         this.menuPony = document.getElementById('menu-pony');
         this.hanziGameBtn = document.getElementById('hanzi-game');
+        this.currentUsername = document.getElementById('current-username');
+        this.currentAvatar = document.getElementById('current-avatar');
+        this.switchUserBtn = document.getElementById('switch-user');
+        this.leaderboardBtn = document.getElementById('view-leaderboard');
 
         // Game elements
         this.backToMenuBtn = document.getElementById('back-to-menu');
@@ -66,6 +75,10 @@ class PonyMathGame {
         this.collectedCount = document.getElementById('collected-count');
         this.totalCards = document.getElementById('total-cards');
 
+        // Leaderboard elements
+        this.backFromLeaderboardBtn = document.getElementById('back-from-leaderboard');
+        this.leaderboardList = document.getElementById('leaderboard-list');
+
         // Popup elements
         this.cardPopup = document.getElementById('card-popup');
         this.newCardShowcase = document.getElementById('new-card-showcase');
@@ -79,6 +92,16 @@ class PonyMathGame {
         this.wrongTitle = document.getElementById('wrong-title');
         this.revealAnswerBtn = document.getElementById('reveal-answer-btn');
         this.closeWrongPopupBtn = document.getElementById('close-wrong-popup');
+
+        // User switch popup elements
+        this.userPopup = document.getElementById('user-popup');
+        this.userList = document.getElementById('user-list');
+        this.userSwitchStatus = document.getElementById('user-switch-status');
+        this.avatarOptions = document.getElementById('avatar-options');
+        this.saveAvatarBtn = document.getElementById('save-avatar');
+        this.newUserForm = document.getElementById('new-user-form');
+        this.newUsernameInput = document.getElementById('new-username');
+        this.closeUserPopupBtn = document.getElementById('close-user-popup');
 
         // Hanzi game elements
         this.hanziDifficultyButtons = document.querySelectorAll('.difficulty-btn[data-hanzi-difficulty]');
@@ -101,7 +124,8 @@ class PonyMathGame {
     bindEvents() {
         // Math difficulty selection
         this.difficultyButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
+                await storage.waitUntilReady();
                 this.currentDifficulty = btn.dataset.difficulty;
                 this.currentGameMode = 'math';
                 this.startGame(this.currentDifficulty);
@@ -116,7 +140,8 @@ class PonyMathGame {
 
         // Hanzi difficulty selection
         this.hanziDifficultyButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
+                await storage.waitUntilReady();
                 this.currentDifficulty = btn.dataset.hanziDifficulty;
                 this.currentGameMode = 'hanzi';
                 this.startHanziGame(this.currentDifficulty);
@@ -124,9 +149,17 @@ class PonyMathGame {
         });
 
         // Collection view
-        this.viewCollectionBtn.addEventListener('click', () => {
+        this.viewCollectionBtn.addEventListener('click', async () => {
+            await storage.waitUntilReady();
             this.showScreen('collection');
             this.renderCollection();
+        });
+
+        // Leaderboard view
+        this.leaderboardBtn.addEventListener('click', async () => {
+            await storage.waitUntilReady();
+            this.showScreen('leaderboard');
+            this.renderLeaderboard();
         });
 
         // Back buttons
@@ -136,6 +169,10 @@ class PonyMathGame {
         });
 
         this.backFromCollectionBtn.addEventListener('click', () => {
+            this.showScreen('menu');
+        });
+
+        this.backFromLeaderboardBtn.addEventListener('click', () => {
             this.showScreen('menu');
         });
 
@@ -163,8 +200,148 @@ class PonyMathGame {
             this.revealAnswer();
         });
 
+        // User switching
+        this.switchUserBtn.addEventListener('click', () => {
+            this.openUserSwitcher();
+        });
+
+        this.closeUserPopupBtn.addEventListener('click', () => {
+            this.closeUserSwitcher();
+        });
+
+        this.saveAvatarBtn.addEventListener('click', () => {
+            this.saveSelectedAvatar();
+        });
+
+        this.newUserForm.addEventListener('submit', event => {
+            event.preventDefault();
+            this.createUserFromForm();
+        });
+
         // Touch/mouse effects
         document.addEventListener('touchstart', this.handleTouch.bind(this), { passive: true });
+    }
+
+    updateUserIdentity() {
+        if (this.currentUsername) {
+            this.currentUsername.textContent = storage.getUserName();
+        }
+        if (this.currentAvatar) {
+            this.currentAvatar.textContent = storage.getAvatar();
+        }
+    }
+
+    async openUserSwitcher() {
+        this.selectedAvatar = storage.getAvatar();
+        this.userPopup.classList.remove('hidden');
+        this.userSwitchStatus.textContent = '正在加载用户…';
+        this.renderAvatarOptions();
+
+        try {
+            const users = await storage.getUsers();
+            this.renderUserList(users);
+            this.userSwitchStatus.textContent = '无需密码，每位用户都有独立的卡片册和成绩。';
+            this.newUsernameInput.focus();
+        } catch (error) {
+            this.userSwitchStatus.textContent = error.message || '加载用户失败，请稍后再试。';
+        }
+    }
+
+    renderUserList(users) {
+        this.userList.innerHTML = '';
+        users.forEach(user => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `user-option ${user.name === storage.getUserName() ? 'active' : ''}`;
+
+            const name = document.createElement('span');
+            name.textContent = `${user.avatar || '🌈'} ${user.name}`;
+            const count = document.createElement('span');
+            count.className = 'user-card-count';
+            count.textContent = `🎴 ${user.collectedCount || 0} 张 · ✅ ${user.totalCorrect || 0}`;
+            button.append(name, count);
+
+            button.addEventListener('click', () => {
+                this.selectUser(user.name);
+            });
+            this.userList.appendChild(button);
+        });
+    }
+
+    renderAvatarOptions() {
+        this.avatarOptions.innerHTML = '';
+        AVATAR_OPTIONS.forEach(avatar => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `avatar-option ${avatar === this.selectedAvatar ? 'active' : ''}`;
+            button.textContent = avatar;
+            button.setAttribute('aria-label', `选择头像 ${avatar}`);
+            button.addEventListener('click', () => {
+                this.selectedAvatar = avatar;
+                this.renderAvatarOptions();
+            });
+            this.avatarOptions.appendChild(button);
+        });
+    }
+
+    async saveSelectedAvatar() {
+        if (this.selectedAvatar === storage.getAvatar()) {
+            this.userSwitchStatus.textContent = '这就是当前头像。';
+            return;
+        }
+
+        this.userSwitchStatus.textContent = '正在保存头像…';
+        try {
+            await storage.setAvatar(this.selectedAvatar);
+            this.updateUserIdentity();
+            this.renderUserList(await storage.getUsers());
+            this.userSwitchStatus.textContent = '头像已保存。';
+        } catch (error) {
+            this.selectedAvatar = storage.getAvatar();
+            this.renderAvatarOptions();
+            this.userSwitchStatus.textContent = error.message || '头像保存失败，请稍后再试。';
+        }
+    }
+
+    async selectUser(username) {
+        if (username === storage.getUserName()) {
+            this.closeUserSwitcher();
+            return;
+        }
+
+        this.userSwitchStatus.textContent = '正在切换用户…';
+        try {
+            await storage.switchUser(username);
+            this.updateUserIdentity();
+            this.updateCollectionCount();
+            this.closeUserSwitcher();
+        } catch (error) {
+            this.userSwitchStatus.textContent = error.message || '切换用户失败，请稍后再试。';
+        }
+    }
+
+    async createUserFromForm() {
+        const username = this.newUsernameInput.value.trim();
+        if (!username) {
+            this.userSwitchStatus.textContent = '请输入用户名。';
+            this.newUsernameInput.focus();
+            return;
+        }
+
+        this.userSwitchStatus.textContent = '正在创建用户…';
+        try {
+            await storage.createUser(username, this.selectedAvatar);
+            this.updateUserIdentity();
+            this.updateCollectionCount();
+            this.newUsernameInput.value = '';
+            this.closeUserSwitcher();
+        } catch (error) {
+            this.userSwitchStatus.textContent = error.message || '创建用户失败，请换一个名字。';
+        }
+    }
+
+    closeUserSwitcher() {
+        this.userPopup.classList.add('hidden');
     }
 
     handleTouch(e) {
@@ -556,6 +733,51 @@ class PonyMathGame {
     updateCollectionCount() {
         this.collectedCount.textContent = storage.getCollectedCount();
         this.totalCards.textContent = CONFIG.cards.length;
+    }
+
+    async renderLeaderboard() {
+        this.leaderboardList.innerHTML = '<div class="leaderboard-loading">正在加载排行榜…</div>';
+
+        try {
+            const leaderboard = await storage.getLeaderboard();
+            this.leaderboardList.innerHTML = '';
+
+            if (leaderboard.length === 0) {
+                this.leaderboardList.innerHTML = '<div class="leaderboard-empty">还没有排行数据，快来答题吧！</div>';
+                return;
+            }
+
+            leaderboard.forEach((user, index) => {
+                const item = document.createElement('div');
+                item.className = `leaderboard-item ${user.name === storage.getUserName() ? 'current-user' : ''}`;
+
+                const rank = document.createElement('span');
+                rank.className = `leaderboard-rank rank-${index + 1}`;
+                rank.textContent = index < 3 ? ['🥇', '🥈', '🥉'][index] : `${index + 1}`;
+
+                const avatar = document.createElement('span');
+                avatar.className = 'leaderboard-avatar';
+                avatar.textContent = user.avatar || '🌈';
+
+                const identity = document.createElement('div');
+                identity.className = 'leaderboard-identity';
+                const name = document.createElement('strong');
+                name.textContent = user.name;
+                const details = document.createElement('span');
+                details.textContent = `答对 ${user.totalCorrect || 0} 题 · 卡片 ${user.collectedCount || 0} 张 · 正确率 ${user.accuracy || 0}%`;
+                identity.append(name, details);
+
+                const score = document.createElement('span');
+                score.className = 'leaderboard-score';
+                score.textContent = `${user.totalCorrect || 0}`;
+
+                item.append(rank, avatar, identity, score);
+                this.leaderboardList.appendChild(item);
+            });
+        } catch (error) {
+            this.leaderboardList.innerHTML = '<div class="leaderboard-empty">排行榜暂时不可用，请稍后再试。</div>';
+            console.warn('Failed to load leaderboard:', error);
+        }
     }
 
     // End game

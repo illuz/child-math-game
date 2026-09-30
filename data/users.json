@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "users": {
+    "小朋友": {
+      "avatar": "🌈",
+      "collectedCards": [],
+      "highScores": {
+        "easy": 0,
+        "medium": 0,
+        "hard": 0,
+        "infinite": 0,
+        "hell": 0,
+        "hanzi_easy": 0,
+        "hanzi_medium": 0,
+        "hanzi_hard": 0
+      },
+      "totalCorrect": 0,
+      "totalPlayed": 0,
+      "soundEnabled": true,
+      "updatedAt": "2026-09-30T00:00:00.000Z"
+    }
+  }
+}

@@ -14,6 +14,10 @@
         <!-- Main Menu Screen -->
         <div id="menu-screen" class="screen active">
             <div class="menu-container">
+                <div class="user-panel" aria-live="polite">
+                    <span class="user-label"><span id="current-avatar">🌈</span> 当前用户：<strong id="current-username">小朋友</strong></span>
+                    <button class="user-switch-btn" id="switch-user" type="button">切换用户</button>
+                </div>
                 <h1 class="game-title">小马宝莉<br>数学乐园</h1>
                 <div class="pony-decoration" id="menu-pony"></div>
                 <div class="difficulty-buttons">
@@ -48,6 +52,9 @@
                 </button>
                 <button class="collection-btn" id="view-collection">
                     🎴 我的卡片册
+                </button>
+                <button class="leaderboard-btn" id="view-leaderboard">
+                    🏆 排行榜
                 </button>
             </div>
         </div>
@@ -177,6 +184,21 @@
             </div>
         </div>
 
+        <!-- Leaderboard Screen -->
+        <div id="leaderboard-screen" class="screen">
+            <div class="collection-header leaderboard-header">
+                <button class="back-btn" id="back-from-leaderboard">🏠</button>
+                <div>
+                    <h2>🏆 小马排行榜</h2>
+                    <p>按累计答对题数排名</p>
+                </div>
+                <span class="leaderboard-no-password">无需密码</span>
+            </div>
+            <div class="leaderboard-list" id="leaderboard-list">
+                <!-- Generated dynamically -->
+            </div>
+        </div>
+
         <!-- Card Reward Popup -->
         <div id="card-popup" class="popup hidden">
             <div class="popup-content card-reward">
@@ -199,6 +221,28 @@
                 </div>
                 <button class="popup-btn wrong-btn" id="reveal-answer-btn" style="display: none;">👀 查看答案</button>
                 <button class="popup-btn wrong-btn" id="close-wrong-popup">我知道了</button>
+            </div>
+        </div>
+
+        <!-- User Switch Popup -->
+        <div id="user-popup" class="popup hidden">
+            <div class="popup-content user-switcher">
+                <h2>👤 选择用户</h2>
+                <p class="user-switch-hint" id="user-switch-status">无需密码，每位用户都有独立的卡片册和成绩。</p>
+                <div class="user-list" id="user-list"></div>
+                <div class="avatar-picker-section">
+                    <div class="avatar-picker-title">选择头像</div>
+                    <div class="avatar-options" id="avatar-options"></div>
+                    <button class="popup-btn save-avatar-btn" id="save-avatar" type="button">保存当前头像</button>
+                </div>
+                <form class="new-user-form" id="new-user-form">
+                    <label for="new-username">新建用户</label>
+                    <div class="new-user-row">
+                        <input id="new-username" name="username" type="text" maxlength="30" placeholder="输入名字" autocomplete="off" required>
+                        <button class="popup-btn create-user-btn" type="submit">创建</button>
+                    </div>
+                </form>
+                <button class="popup-btn user-cancel-btn" id="close-user-popup" type="button">取消</button>
             </div>
         </div>
     </div>

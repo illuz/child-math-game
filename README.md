@@ -4,27 +4,47 @@ iPad 适配的儿童 10 以内加减法游戏
 
 ## 运行方式
 
-由于使用了 ES6 模块，需要通过 HTTP 服务器运行：
+项目现在使用内置 Node.js 服务启动，服务同时负责静态文件和用户数据 API：
 
 ```bash
-# 方式 1: Python 3
-cd /Users/icepoint1999/code/child-math-game
-python3 -m http.server 8080
-
-# 方式 2: Node.js (需要安装 serve)
-npx serve .
-
-# 方式 3: PHP
-php -S localhost:8080
+npm install
+npm start
 ```
 
-然后在浏览器访问: http://localhost:8080
+运行自动化测试：
+
+```bash
+npm test
+```
+
+然后在浏览器访问：<http://127.0.0.1:8080>
+
+也可以通过环境变量修改端口：
+
+```bash
+PORT=3000 npm start
+```
+
+## 用户和卡片数据
+
+首页可以切换或创建用户名并选择头像，不需要密码。每位用户拥有独立的卡片册、成绩和答题统计，数据保存在项目根目录的 `data/users.json`，重启 Node 服务后仍会保留。
+
+页面通过以下 API 读写数据：
+
+- `GET /api/users`：获取用户列表
+- `POST /api/users`：创建用户，JSON 参数为 `{ "name": "用户名", "avatar": "🌈" }`
+- `GET /api/users/:name`：读取用户数据
+- `PUT /api/users/:name`：保存用户数据
+- `GET /api/leaderboard`：按累计答对题数返回排行榜
 
 ## 项目结构
 
 ```
 child-math-game/
 ├── index.html          # 主页面
+├── server.js           # Node.js 静态文件和用户数据服务
+├── data/
+│   └── users.json      # 用户卡片数据（运行时自动维护）
 ├── css/
 │   ├── main.css        # 主样式
 │   └── animations.css  # 动画样式
@@ -34,7 +54,7 @@ child-math-game/
 │   ├── game.js         # 游戏逻辑
 │   ├── pony.js         # Canvas 绘制小马
 │   ├── sound.js        # Web Audio 音效
-│   ├── storage.js      # 本地存储
+│   ├── storage.js      # Node API 存储客户端
 │   └── animations.js   # 动画效果
 └── assets/
     ├── images/         # 预留图片目录
@@ -48,7 +68,9 @@ child-math-game/
 - **Canvas 绘制**：所有小马角色使用 Canvas 绘制，零外部依赖
 - **Web Audio**：使用 Web Audio API 生成音效
 - **iPad 适配**：响应式布局，支持横竖屏
-- **本地存储**：保存卡片收集进度和高分
+- **多用户**：无需密码即可创建、切换用户并选择头像
+- **排行榜**：按累计答对题数展示所有用户排名
+- **用户数据**：卡片收集进度和高分按用户名保存到本地 JSON
 
 ## 可选资产
 
