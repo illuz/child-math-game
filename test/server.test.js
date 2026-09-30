@@ -84,6 +84,34 @@ test('creates passwordless users with avatars and sorts the leaderboard', async 
     }
 });
 
+test('accepts same-origin HTTPS requests behind a reverse proxy', async () => {
+    const server = await createTestServer();
+    try {
+        const origin = `https://127.0.0.1:${new URL(server.baseUrl).port}`;
+        const created = await request(server.baseUrl, '/api/users', {
+            method: 'POST',
+            headers: {
+                Origin: origin,
+                'X-Forwarded-Proto': 'https'
+            },
+            body: JSON.stringify({ name: '反向代理用户' })
+        });
+        assert.equal(created.response.status, 201);
+
+        const crossOrigin = await request(server.baseUrl, '/api/users', {
+            method: 'POST',
+            headers: {
+                Origin: 'https://other.example',
+                'X-Forwarded-Proto': 'https'
+            },
+            body: JSON.stringify({ name: '跨域用户' })
+        });
+        assert.equal(crossOrigin.response.status, 403);
+    } finally {
+        await server.close();
+    }
+});
+
 test('persists avatar and cards after restarting the server', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'child-math-game-restart-'));
     const dataFile = path.join(directory, 'users.json');

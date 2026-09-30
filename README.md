@@ -25,6 +25,16 @@ npm test
 PORT=3000 npm start
 ```
 
+如果放在 HTTPS 反向代理后面，代理需要转发原始协议，避免 API 把同域 HTTPS 请求误判为跨域：
+
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+```
+
+前端默认使用同源的相对地址 `/api`，不需要开放通配符 CORS。
+
 ## 用户和卡片数据
 
 首页可以切换或创建用户名并选择头像，不需要密码。每位用户拥有独立的卡片册、成绩和答题统计，数据保存在项目根目录的 `data/users.json`，重启 Node 服务后仍会保留。

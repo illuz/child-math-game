@@ -55,6 +55,29 @@ function createId() {
     return crypto.randomUUID();
 }
 
+function isAllowedApiOrigin(request) {
+    const origin = request.headers.origin;
+    if (!origin) return true;
+
+    let originUrl;
+    try {
+        originUrl = new URL(origin);
+    } catch {
+        return false;
+    }
+
+    const host = String(request.headers.host || '').toLowerCase();
+    if (!host || originUrl.host.toLowerCase() !== host
+        || !['http:', 'https:'].includes(originUrl.protocol)) {
+        return false;
+    }
+
+    const forwardedProto = String(request.headers['x-forwarded-proto'] || '')
+        .split(',')[0].trim().toLowerCase();
+    const protocol = forwardedProto || (request.socket.encrypted ? 'https' : 'http');
+    return originUrl.protocol === `${protocol}:`;
+}
+
 function hashPin(pin, userId) {
     return crypto.scryptSync(String(pin), userId, 32).toString('hex');
 }
@@ -361,7 +384,7 @@ async function createServer({ dataFile = DATA_FILE, rootDir = ROOT_DIR } = {}) {
                 await serveStatic(request, response, url.pathname, rootDir);
                 return;
             }
-            if (request.headers.origin && request.headers.origin !== url.origin) {
+            if (!isAllowedApiOrigin(request)) {
                 throw new HttpError(403, 'Cross-origin API requests are not allowed');
             }
             if (url.pathname === '/api/users') {
