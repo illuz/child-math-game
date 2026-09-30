@@ -1790,3 +1790,293 @@ body {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ===== Viewport-safe responsive layout ===== */
+html {
+    min-height: 100%;
+}
+
+body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: none;
+}
+
+#app {
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+}
+
+.screen {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.menu-container {
+    flex: 0 0 auto;
+    min-height: 100%;
+    min-height: 100dvh;
+    height: auto;
+    justify-content: flex-start;
+    justify-content: safe center;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 20px
+        calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+.game-header,
+.collection-header {
+    flex-shrink: 0;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+}
+
+.game-area {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    justify-content: safe center;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
+}
+
+.question-container,
+.hanzi-question-container,
+.visual-question-container,
+.answer-buttons,
+.hanzi-answer-buttons,
+.visual-answer-buttons,
+.progress-bar {
+    flex-shrink: 0;
+}
+
+.collection-grid,
+.leaderboard-list,
+.parent-dashboard-content {
+    min-height: 0;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
+}
+
+.popup {
+    box-sizing: border-box;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 12px
+        calc(12px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.popup-content {
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+@media (max-width: 430px) {
+    .game-header,
+    .collection-header {
+        gap: 6px;
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .back-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.25rem;
+    }
+
+    .score-display,
+    .timer-display,
+    .streak-display {
+        min-width: 0;
+        padding: 6px 8px;
+        font-size: 0.95rem;
+    }
+
+    .collection-header h2 {
+        font-size: 1.2rem;
+    }
+
+    .leaderboard-no-password,
+    .collection-count {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-height: 700px) {
+    .menu-container {
+        padding-top: calc(12px + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .game-title {
+        font-size: clamp(2.25rem, 10vw, 3rem);
+        letter-spacing: 2px;
+        margin-bottom: 8px;
+    }
+
+    .pony-decoration {
+        width: 140px;
+        height: 140px;
+        margin: 8px 0;
+    }
+
+    .difficulty-buttons {
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .difficulty-btn {
+        padding: 12px 20px;
+        border-radius: 18px;
+    }
+
+    .difficulty-btn .star {
+        font-size: 1.1rem;
+    }
+
+    .difficulty-btn .label {
+        font-size: 1.1rem;
+    }
+
+    .difficulty-btn .desc {
+        font-size: 0.75rem;
+    }
+
+    .hanzi-btn,
+    .collection-btn,
+    .visual-math-btn,
+    .parent-btn {
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    .visual-math-secondary {
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+
+    .game-area {
+        justify-content: flex-start;
+        padding: 12px 12px calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .pony-helper {
+        top: 4px;
+        right: 8px;
+        width: 72px;
+        height: 72px;
+    }
+
+    .question-container {
+        margin-bottom: 16px;
+    }
+
+    .question-card {
+        gap: 8px;
+        padding: 14px 18px;
+        border-width: 3px;
+        border-radius: 20px;
+    }
+
+    .number {
+        min-width: 44px;
+        font-size: clamp(2.5rem, 12vw, 3.5rem);
+    }
+
+    .operator,
+    .equals {
+        font-size: 2rem;
+    }
+
+    .answer-box {
+        min-width: 65px;
+        padding: 6px 16px;
+        font-size: clamp(2.5rem, 12vw, 3.5rem);
+    }
+
+    .answer-buttons {
+        gap: 8px;
+        padding: 0;
+    }
+
+    .answer-btn {
+        padding: 14px 10px;
+        border-radius: 15px;
+        font-size: clamp(1.25rem, 5vw, 1.75rem);
+    }
+
+    .progress-bar {
+        height: 26px;
+        margin-top: 16px;
+    }
+
+    .hanzi-question-container {
+        margin-bottom: 12px;
+    }
+
+    .emoji-display {
+        margin-bottom: 8px;
+        font-size: clamp(4.5rem, 22vh, 7rem);
+    }
+
+    .hint-text {
+        font-size: 1.2rem;
+    }
+
+    .hanzi-answer-buttons {
+        gap: 8px;
+        padding: 0;
+    }
+
+    .hanzi-answer-btn {
+        padding: 14px 10px;
+        border-radius: 15px;
+        font-size: clamp(1.8rem, 8vw, 2.5rem);
+    }
+
+    .visual-question-container {
+        margin-bottom: 14px;
+    }
+
+    .visual-prompt {
+        margin-bottom: 8px;
+        font-size: 1.5rem;
+    }
+
+    .visual-objects {
+        min-height: 76px;
+        padding: 10px 14px;
+        font-size: clamp(2.3rem, 14vw, 4.5rem);
+    }
+
+    .hint-btn {
+        margin-top: 10px;
+        padding-top: 7px;
+        padding-bottom: 7px;
+    }
+
+    .hint-message {
+        min-height: 22px;
+        margin-top: 4px;
+    }
+
+    .visual-answer-buttons {
+        gap: 8px;
+    }
+
+    .visual-answer-btn {
+        min-height: 60px;
+        border-radius: 16px;
+        font-size: clamp(1.6rem, 7vw, 2.2rem);
+    }
+}
