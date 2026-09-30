@@ -50,11 +50,28 @@
                 <button class="hanzi-btn" id="hanzi-game">
                     📖 认字乐园
                 </button>
+                <div class="visual-math-actions" aria-label="看图数学游戏">
+                    <button class="visual-math-btn" id="visual-math-game" type="button">
+                        🍎 看图数数
+                    </button>
+                    <button class="visual-math-btn visual-math-secondary" id="visual-count-10-game" type="button">
+                        🔟 数到 10
+                    </button>
+                    <button class="visual-math-btn visual-math-secondary" id="visual-compare-game" type="button">
+                        ⚖️ 比一比
+                    </button>
+                    <button class="visual-math-btn visual-math-secondary" id="visual-pattern-game" type="button">
+                        🔷 找规律
+                    </button>
+                </div>
                 <button class="collection-btn" id="view-collection">
                     🎴 我的卡片册
                 </button>
                 <button class="leaderboard-btn" id="view-leaderboard">
                     🏆 排行榜
+                </button>
+                <button class="parent-btn" id="view-parent-dashboard">
+                    👪 家长中心
                 </button>
             </div>
         </div>
@@ -123,6 +140,32 @@
 
             <div class="feedback-overlay" id="hanzi-feedback-overlay">
                 <div class="feedback-content" id="hanzi-feedback-content"></div>
+            </div>
+        </div>
+
+        <!-- Visual Math Game Screen -->
+        <div id="visual-math-screen" class="screen">
+            <div class="game-header">
+                <button class="back-btn" id="back-from-visual-math" type="button">🏠</button>
+                <div class="score-display"><span class="score-icon">🌟</span><span id="visual-score">0</span></div>
+                <div class="streak-display"><span class="streak-icon">🔥</span><span id="visual-streak">0</span></div>
+            </div>
+            <div class="game-area visual-math-area">
+                <div class="pony-helper" id="visual-game-pony"></div>
+                <div class="visual-question-container">
+                    <div class="visual-prompt" id="visual-prompt">有几个？</div>
+                    <div class="visual-objects" id="visual-objects" aria-live="polite"></div>
+                    <button class="hint-btn" id="visual-hint" type="button">💡 给我提示</button>
+                    <div class="hint-message" id="visual-hint-message" aria-live="polite"></div>
+                </div>
+                <div class="visual-answer-buttons" id="visual-answer-buttons"></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="visual-progress-fill"></div>
+                    <div class="progress-text">本局进度：<span id="visual-progress">0</span>/<span id="visual-needed">5</span></div>
+                </div>
+            </div>
+            <div class="feedback-overlay" id="visual-feedback-overlay">
+                <div class="feedback-content" id="visual-feedback-content"></div>
             </div>
         </div>
 
@@ -199,11 +242,32 @@
             </div>
         </div>
 
+        <!-- Parent Dashboard Screen -->
+        <div id="parent-dashboard-screen" class="screen">
+            <div class="collection-header">
+                <button class="back-btn" id="back-from-parent-dashboard" type="button">🏠</button>
+                <h2>家长中心</h2>
+                <span class="collection-count" id="parent-sync-status">未验证</span>
+            </div>
+            <div class="parent-dashboard-content" id="parent-dashboard-content">
+                <form class="parent-pin-form" id="parent-pin-form">
+                    <h3 id="parent-pin-title">家长 PIN</h3>
+                    <p id="parent-pin-help">首次使用请设置 4 位数字 PIN。</p>
+                    <input id="parent-pin-input" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="4 位数字" required>
+                    <input id="parent-current-pin-input" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="已有 PIN 时填写旧 PIN">
+                    <button class="popup-btn" type="submit">进入家长中心</button>
+                    <p class="parent-pin-error" id="parent-pin-error" aria-live="polite"></p>
+                </form>
+                <div class="parent-dashboard-data hidden" id="parent-dashboard-data"></div>
+            </div>
+        </div>
+
         <!-- Card Reward Popup -->
         <div id="card-popup" class="popup hidden">
             <div class="popup-content card-reward">
                 <div class="sparkles"></div>
-                <h2>🎉 恭喜获得新卡片!</h2>
+                <h2 id="card-reward-title">🎉 恭喜获得新卡片!</h2>
+                <p id="card-reward-message" class="card-reward-message"></p>
                 <div class="card-showcase" id="new-card-showcase"></div>
                 <button class="popup-btn" id="close-card-popup">太棒了!</button>
             </div>

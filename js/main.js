@@ -3,6 +3,9 @@ import { CONFIG } from './config.js';
 import { GameLogic } from './game.js';
 import { HanziGameLogic } from './hanzi-game.js';
 import { HANZI_DIFFICULTY } from './hanzi-data.js';
+import { VisualMathLogic } from './visual-math-game.js';
+import { getDailyMissions, getAchievementLabels } from './mission-engine.js';
+import { TimerController } from './core/timer-controller.js';
 import { soundManager } from './sound.js';
 import { AVATAR_OPTIONS, storage } from './storage.js';
 import { ponyRenderer } from './pony.js';
@@ -12,11 +15,25 @@ class PonyMathGame {
     constructor() {
         this.game = new GameLogic();
         this.hanziGame = new HanziGameLogic();
+        this.visualGame = new VisualMathLogic();
         this.currentScreen = 'menu';
         this.timerInterval = null;
+        this.timerController = new TimerController({
+            onTick: timeLeft => {
+                this.game.timeLeft = timeLeft;
+                this.updateTimerDisplay();
+                if (timeLeft <= 3 && timeLeft > 0 && this.timerDisplay?.parentElement) {
+                    this.timerDisplay.parentElement.classList.add('timer-warning');
+                }
+            },
+            onExpire: () => this.handleTimeUp()
+        });
         this.currentDifficulty = null;
         this.currentGameMode = 'math'; // 'math' or 'hanzi'
         this.selectedAvatar = storage.getAvatar();
+        this.parentUnlocked = false;
+        this.answerLocked = false;
+        this.gameToken = 0;
 
         this.ready = this.init();
     }
@@ -27,6 +44,7 @@ class PonyMathGame {
         this.renderMenuPony();
         this.updateUserIdentity();
         await storage.waitUntilReady();
+        soundManager.enabled = storage.isSoundEnabled();
         this.updateUserIdentity();
         this.updateCollectionCount();
     }
@@ -39,7 +57,9 @@ class PonyMathGame {
             collection: document.getElementById('collection-screen'),
             leaderboard: document.getElementById('leaderboard-screen'),
             hanziDifficulty: document.getElementById('hanzi-difficulty-screen'),
-            hanziGame: document.getElementById('hanzi-game-screen')
+            hanziGame: document.getElementById('hanzi-game-screen'),
+            visualMath: document.getElementById('visual-math-screen'),
+            parentDashboard: document.getElementById('parent-dashboard-screen')
         };
 
         // Menu elements
@@ -47,6 +67,11 @@ class PonyMathGame {
         this.viewCollectionBtn = document.getElementById('view-collection');
         this.menuPony = document.getElementById('menu-pony');
         this.hanziGameBtn = document.getElementById('hanzi-game');
+        this.visualMathBtn = document.getElementById('visual-math-game');
+        this.visualCountTenBtn = document.getElementById('visual-count-10-game');
+        this.visualCompareBtn = document.getElementById('visual-compare-game');
+        this.visualPatternBtn = document.getElementById('visual-pattern-game');
+        this.parentBtn = document.getElementById('view-parent-dashboard');
         this.currentUsername = document.getElementById('current-username');
         this.currentAvatar = document.getElementById('current-avatar');
         this.switchUserBtn = document.getElementById('switch-user');
@@ -79,9 +104,38 @@ class PonyMathGame {
         this.backFromLeaderboardBtn = document.getElementById('back-from-leaderboard');
         this.leaderboardList = document.getElementById('leaderboard-list');
 
+        // Visual math elements
+        this.backFromVisualMathBtn = document.getElementById('back-from-visual-math');
+        this.visualScoreDisplay = document.getElementById('visual-score');
+        this.visualStreakDisplay = document.getElementById('visual-streak');
+        this.visualGamePony = document.getElementById('visual-game-pony');
+        this.visualPrompt = document.getElementById('visual-prompt');
+        this.visualObjects = document.getElementById('visual-objects');
+        this.visualHintBtn = document.getElementById('visual-hint');
+        this.visualHintMessage = document.getElementById('visual-hint-message');
+        this.visualAnswerButtons = document.getElementById('visual-answer-buttons');
+        this.visualProgressFill = document.getElementById('visual-progress-fill');
+        this.visualProgress = document.getElementById('visual-progress');
+        this.visualNeeded = document.getElementById('visual-needed');
+        this.visualFeedbackOverlay = document.getElementById('visual-feedback-overlay');
+
+        // Parent dashboard elements
+        this.backFromParentDashboardBtn = document.getElementById('back-from-parent-dashboard');
+        this.parentDashboardContent = document.getElementById('parent-dashboard-content');
+        this.parentPinForm = document.getElementById('parent-pin-form');
+        this.parentPinTitle = document.getElementById('parent-pin-title');
+        this.parentPinHelp = document.getElementById('parent-pin-help');
+        this.parentPinInput = document.getElementById('parent-pin-input');
+        this.parentCurrentPinInput = document.getElementById('parent-current-pin-input');
+        this.parentPinError = document.getElementById('parent-pin-error');
+        this.parentDashboardData = document.getElementById('parent-dashboard-data');
+        this.parentSyncStatus = document.getElementById('parent-sync-status');
+
         // Popup elements
         this.cardPopup = document.getElementById('card-popup');
         this.newCardShowcase = document.getElementById('new-card-showcase');
+        this.cardRewardTitle = document.getElementById('card-reward-title');
+        this.cardRewardMessage = document.getElementById('card-reward-message');
         this.closeCardPopupBtn = document.getElementById('close-card-popup');
 
         // Wrong answer popup elements
@@ -138,6 +192,31 @@ class PonyMathGame {
             this.renderHanziMenuPony();
         });
 
+        this.visualMathBtn.addEventListener('click', async () => {
+            await storage.waitUntilReady();
+            this.startVisualMathGame('counting_1_5');
+        });
+
+        this.visualCountTenBtn.addEventListener('click', async () => {
+            await storage.waitUntilReady();
+            this.startVisualMathGame('counting_1_10');
+        });
+
+        this.visualCompareBtn.addEventListener('click', async () => {
+            await storage.waitUntilReady();
+            this.startVisualMathGame('compare_quantities');
+        });
+
+        this.visualPatternBtn.addEventListener('click', async () => {
+            await storage.waitUntilReady();
+            this.startVisualMathGame('patterns_shapes');
+        });
+
+        this.parentBtn.addEventListener('click', async () => {
+            await storage.waitUntilReady();
+            this.openParentDashboard();
+        });
+
         // Hanzi difficulty selection
         this.hanziDifficultyButtons.forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -185,6 +264,26 @@ class PonyMathGame {
             this.showScreen('menu');
         });
 
+        this.backFromVisualMathBtn.addEventListener('click', () => {
+            this.endVisualMathGame();
+            this.showScreen('menu');
+        });
+
+        this.backFromParentDashboardBtn.addEventListener('click', () => {
+            this.parentUnlocked = false;
+            this.showScreen('menu');
+        });
+
+        this.visualHintBtn.addEventListener('click', () => {
+            this.visualHintMessage.textContent = this.visualGame.getHint();
+            this.visualHintBtn.disabled = true;
+        });
+
+        this.parentPinForm.addEventListener('submit', event => {
+            event.preventDefault();
+            this.unlockParentDashboard();
+        });
+
         // Card popup
         this.closeCardPopupBtn.addEventListener('click', () => {
             this.hideCardPopup();
@@ -220,6 +319,14 @@ class PonyMathGame {
 
         // Touch/mouse effects
         document.addEventListener('touchstart', this.handleTouch.bind(this), { passive: true });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.timerWasRunning = this.timerController.running || Boolean(this.timerInterval);
+                this.stopTimer();
+            } else if (this.timerWasRunning && !this.isPopupVisible()) {
+                this.resumeActiveTimer();
+            }
+        });
     }
 
     updateUserIdentity() {
@@ -371,6 +478,9 @@ class PonyMathGame {
 
     // Start game
     startGame(difficulty) {
+        this.stopTimer();
+        this.gameToken += 1;
+        this.answerLocked = false;
         const question = this.game.startGame(difficulty);
         const config = CONFIG.difficulties[difficulty];
 
@@ -434,6 +544,10 @@ class PonyMathGame {
 
     // Handle answer selection
     handleAnswer(selectedAnswer, button) {
+        if (this.answerLocked) return;
+        const gameToken = this.gameToken;
+        this.answerLocked = true;
+        this.stopTimer();
         // Disable all buttons temporarily
         const allButtons = this.answerButtonsContainer.querySelectorAll('.answer-btn');
         allButtons.forEach(btn => btn.disabled = true);
@@ -454,11 +568,16 @@ class PonyMathGame {
                 button.getBoundingClientRect().top
             );
 
-            storage.recordGame(true);
+            storage.recordGame(true, {
+                mode: 'math',
+                skillId: `math_${this.currentDifficulty}`
+            });
 
             // Check for card reward
             if (this.game.shouldAwardCard()) {
-                setTimeout(() => this.awardCard(), 600);
+                setTimeout(() => {
+                    if (gameToken === this.gameToken && this.currentScreen === 'game') this.awardCard();
+                }, 600);
             }
         } else {
             button.classList.add('wrong');
@@ -481,7 +600,10 @@ class PonyMathGame {
             // Show wrong answer popup
             this.showWrongPopup(result.correctAnswer);
 
-            storage.recordGame(false);
+            storage.recordGame(false, {
+                mode: 'math',
+                skillId: `math_${this.currentDifficulty}`
+            });
         }
 
         // Update displays
@@ -492,12 +614,15 @@ class PonyMathGame {
         // Next question after delay (only for correct answers, wrong answers wait for popup close)
         if (result.correct) {
             setTimeout(() => {
+                if (gameToken !== this.gameToken || this.currentScreen !== 'game') return;
                 const nextQuestion = this.game.generateQuestion();
                 this.updateQuestion(nextQuestion);
+                this.answerLocked = false;
 
                 // Reset timer for timed modes
                 if (this.game.currentDifficulty.hasTimer) {
                     this.resetTimer();
+                    if (!this.isPopupVisible()) this.startTimer();
                 }
             }, 800);
         }
@@ -505,29 +630,31 @@ class PonyMathGame {
 
     // Timer management
     startTimer() {
-        this.updateTimerDisplay();
-        this.timerInterval = setInterval(() => {
-            const result = this.game.tick();
-            this.updateTimerDisplay();
-
-            if (result.expired) {
-                this.handleTimeUp();
-            } else if (result.timeLeft <= 3) {
-                this.timerDisplay.parentElement.classList.add('timer-warning');
-            }
-        }, 1000);
+        this.stopTimer();
+        const duration = this.game.currentDifficulty?.timerSeconds || 0;
+        this.timerController.start(duration);
+        this.timerInterval = true;
+        if (this.game.timeLeft <= 3 && duration > 0) {
+            this.timerDisplay.parentElement.classList.add('timer-warning');
+        }
     }
 
     resetTimer() {
         this.timerDisplay.parentElement.classList.remove('timer-warning');
+        if (this.game.currentDifficulty?.hasTimer) {
+            // Prepare a fresh question timer without starting it while a popup is open.
+            this.timerController.start(this.game.currentDifficulty.timerSeconds);
+            this.timerController.stop();
+        }
         this.updateTimerDisplay();
     }
 
     stopTimer() {
-        if (this.timerInterval) {
+        this.timerController.stop();
+        if (this.timerInterval && this.timerInterval !== true) {
             clearInterval(this.timerInterval);
-            this.timerInterval = null;
         }
+        this.timerInterval = null;
     }
 
     updateTimerDisplay() {
@@ -535,6 +662,9 @@ class PonyMathGame {
     }
 
     handleTimeUp() {
+        if (this.answerLocked) return;
+        this.answerLocked = true;
+        this.stopTimer();
         // Treat as wrong answer
         const result = this.game.checkAnswer(-1);
         soundManager.play('wrong');
@@ -561,7 +691,10 @@ class PonyMathGame {
         this.updateScore();
         this.updateStreak();
         this.updateProgress();
-        storage.recordGame(false);
+        storage.recordGame(false, {
+            mode: 'math',
+            skillId: `math_${this.currentDifficulty}`
+        });
     }
 
     // Show wrong answer popup
@@ -612,6 +745,7 @@ class PonyMathGame {
 
     hideWrongPopup() {
         this.wrongPopup.classList.add('hidden');
+        this.answerLocked = false;
 
         if (this.currentGameMode === 'hanzi') {
             // Reset pony to happy
@@ -675,6 +809,8 @@ class PonyMathGame {
 
     showCardPopup(cardId, isNew) {
         this.newCardShowcase.innerHTML = '';
+        this.cardRewardTitle.textContent = isNew ? '🎉 恭喜获得新卡片！' : '✨ 卡片变成星星啦！';
+        this.cardRewardMessage.textContent = isNew ? '新的小马伙伴加入卡片册！' : '重复卡片转换成了 1 颗星星。';
 
         const ponyCard = ponyRenderer.createImageCard(cardId - 1, 150);
         ponyCard.classList.add('card-collect');
@@ -689,17 +825,12 @@ class PonyMathGame {
 
     hideCardPopup() {
         this.cardPopup.classList.add('hidden');
-
-        // Resume timer if needed
-        if (this.currentGameMode === 'hanzi') {
-            if (this.hanziGame.currentDifficultyConfig && this.hanziGame.currentDifficultyConfig.hasTimer) {
-                this.startHanziTimer();
-            }
-        } else {
-            if (this.game.currentDifficulty && this.game.currentDifficulty.hasTimer) {
-                this.startTimer();
-            }
+        if (this.currentGameMode === 'visual' && this.visualSummaryReady) {
+            this.endVisualMathGame();
+            this.showScreen('menu');
+            return;
         }
+        this.resumeActiveTimer();
     }
 
     // Collection
@@ -780,17 +911,274 @@ class PonyMathGame {
         }
     }
 
+    // ===== Visual Math =====
+
+    startVisualMathGame(skillId = 'counting_1_5') {
+        this.stopTimer();
+        this.gameToken += 1;
+        this.currentGameMode = 'visual';
+        this.currentDifficulty = skillId;
+        this.visualSessionRecorded = false;
+        this.visualSummaryReady = false;
+        const question = this.visualGame.startGame(skillId);
+        this.showScreen('visualMath');
+        this.screens.visualMath.className = 'screen active bg-visual-math';
+        this.updateVisualGamePony();
+        this.updateVisualQuestion(question);
+        this.updateVisualScore();
+        this.updateVisualProgress();
+        this.visualNeeded.textContent = this.visualGame.session.maxQuestions;
+    }
+
+    updateVisualGamePony(mood = 'happy') {
+        const canvas = ponyRenderer.createPonyCanvas(0, 100, mood);
+        this.visualGamePony.innerHTML = '';
+        this.visualGamePony.appendChild(canvas);
+        animations.animatePony(this.visualGamePony, 'idle');
+    }
+
+    updateVisualQuestion(question) {
+        if (!question) return;
+        this.visualPrompt.textContent = question.prompt;
+        this.visualObjects.textContent = question.display || question.object.repeat(question.count);
+        this.visualHintMessage.textContent = '';
+        this.visualHintBtn.disabled = false;
+        this.renderVisualAnswerButtons(question.options);
+    }
+
+    renderVisualAnswerButtons(options) {
+        this.visualAnswerButtons.innerHTML = '';
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'visual-answer-btn';
+            button.textContent = option;
+            button.setAttribute('aria-label', `选择 ${option}`);
+            button.addEventListener('click', () => this.handleVisualAnswer(option, button));
+            this.visualAnswerButtons.appendChild(button);
+        });
+    }
+
+    handleVisualAnswer(selectedAnswer, button) {
+        if (this.answerLocked) return;
+        const gameToken = this.gameToken;
+        this.answerLocked = true;
+        const allButtons = this.visualAnswerButtons.querySelectorAll('.visual-answer-btn');
+        allButtons.forEach(item => { item.disabled = true; });
+        const result = this.visualGame.checkAnswer(selectedAnswer);
+        button.classList.add(result.correct ? 'correct' : 'wrong');
+        storage.recordGame(result.correct, {
+            mode: 'visual',
+            skillId: this.visualGame.skill.id,
+            hintUsed: result.hintUsed
+        });
+
+        if (result.correct) {
+            soundManager.play('correct');
+            animations.animatePony(this.visualGamePony, 'happy');
+            animations.showFeedback(this.visualFeedbackOverlay, true);
+        } else {
+            soundManager.play('wrong');
+            this.updateVisualGamePony('sad');
+            animations.showFeedback(this.visualFeedbackOverlay, false);
+            allButtons.forEach(item => {
+                if (item.textContent === String(result.correctAnswer)) item.classList.add('correct');
+            });
+        }
+
+        this.updateVisualScore();
+        this.updateVisualProgress();
+        if (result.sessionFinished) {
+            setTimeout(() => {
+                if (gameToken === this.gameToken && this.currentScreen === 'visualMath') this.finishVisualMathGame();
+            }, 850);
+            return;
+        }
+        setTimeout(() => {
+            if (gameToken !== this.gameToken || this.currentScreen !== 'visualMath') return;
+            this.updateVisualQuestion(this.visualGame.generateQuestion());
+            this.answerLocked = false;
+        }, 700);
+    }
+
+    updateVisualScore() {
+        this.visualScoreDisplay.textContent = this.visualGame.score;
+        this.visualStreakDisplay.textContent = this.visualGame.streak;
+    }
+
+    updateVisualProgress() {
+        const progress = this.visualGame.getProgress();
+        this.visualProgress.textContent = progress.current;
+        this.visualProgressFill.style.width = `${progress.progress}%`;
+    }
+
+    awardVisualCard() {
+        if (this.visualSummaryReady === false && this.currentGameMode === 'visual' && !this.visualSessionRecorded) {
+            return;
+        }
+        const collectedCards = storage.getCollectedCards();
+        const cardId = this.game.getRandomCard(collectedCards);
+        const isNew = storage.addCard(cardId);
+        soundManager.play('collect');
+        animations.createConfetti(20);
+        this.showCardPopup(cardId, isNew);
+        this.updateCollectionCount();
+    }
+
+    finishVisualMathGame() {
+        if (this.visualSessionRecorded) return;
+        this.visualSessionRecorded = true;
+        storage.recordSession({
+            mode: 'visual',
+            skillId: this.visualGame.skill.id,
+            score: this.visualGame.score
+        });
+        this.visualSummaryReady = true;
+        this.visualPrompt.textContent = '练习完成！你真棒！';
+        this.visualObjects.textContent = `答对 ${this.visualGame.correctCount} / ${this.visualGame.session.questions.length} 题`;
+        this.visualHintMessage.textContent = '回到首页继续探索新的数学游戏吧！';
+        if (this.visualGame.correctCount === this.visualGame.session.maxQuestions) {
+            this.awardVisualCard();
+            return;
+        }
+        setTimeout(() => {
+            if (this.currentScreen === 'visualMath' && this.visualSummaryReady) {
+                this.endVisualMathGame();
+                this.showScreen('menu');
+            }
+        }, 1800);
+    }
+
+    endVisualMathGame() {
+        this.gameToken += 1;
+        this.stopTimer();
+        this.answerLocked = false;
+        this.visualSummaryReady = false;
+        this.screens.visualMath.className = 'screen';
+    }
+
+    // ===== Parent Dashboard =====
+
+    openParentDashboard() {
+        this.showScreen('parentDashboard');
+        this.parentPinForm.classList.remove('hidden');
+        this.parentDashboardData.classList.add('hidden');
+        this.parentPinInput.value = '';
+        this.parentCurrentPinInput.value = '';
+        this.parentPinError.textContent = '';
+        if (storage.isParentPinConfigured()) {
+            this.parentPinTitle.textContent = '输入家长 PIN';
+            this.parentPinHelp.textContent = '请输入 4 位数字 PIN 查看学习进度。';
+            this.parentCurrentPinInput.style.display = 'none';
+        } else {
+            this.parentPinTitle.textContent = '设置家长 PIN';
+            this.parentPinHelp.textContent = '首次使用请设置 4 位数字 PIN。';
+            this.parentCurrentPinInput.style.display = 'block';
+        }
+        this.parentPinInput.focus();
+    }
+
+    async unlockParentDashboard() {
+        const pin = this.parentPinInput.value.trim();
+        if (!/^\d{4}$/.test(pin)) {
+            this.parentPinError.textContent = '请输入 4 位数字。';
+            return;
+        }
+        this.parentPinError.textContent = '正在验证…';
+        try {
+            if (storage.isParentPinConfigured()) {
+                await storage.verifyParentPin(pin);
+            } else {
+                await storage.setParentPin(pin, this.parentCurrentPinInput.value.trim());
+            }
+            this.parentUnlocked = true;
+            await this.renderParentDashboard(pin);
+        } catch (error) {
+            this.parentPinError.textContent = error.message || '验证失败，请重试。';
+        }
+    }
+
+    async renderParentDashboard(parentPin) {
+        const dashboard = await storage.getDashboard(parentPin);
+        this.parentPinForm.classList.add('hidden');
+        this.parentDashboardData.classList.remove('hidden');
+        this.parentSyncStatus.textContent = '已同步';
+        this.parentDashboardData.innerHTML = '';
+
+        const title = document.createElement('h3');
+        title.textContent = `${storage.getAvatar()} ${storage.getUserName()} 的学习报告`;
+        const stats = document.createElement('div');
+        stats.className = 'parent-stats-grid';
+        [
+            ['答题总数', dashboard.stats.totalPlayed],
+            ['答对题数', dashboard.stats.totalCorrect],
+            ['正确率', `${dashboard.stats.accuracy}%`],
+            ['星星', dashboard.stars || 0]
+        ].forEach(([label, value]) => {
+            const card = document.createElement('div');
+            card.className = 'parent-stat-card';
+            card.innerHTML = `<strong>${value}</strong><span>${label}</span>`;
+            stats.appendChild(card);
+        });
+
+        const missions = document.createElement('div');
+        missions.className = 'parent-section';
+        missions.innerHTML = '<h4>今日任务</h4>';
+        getDailyMissions(dashboard.dailyProgress).forEach(mission => {
+            const item = document.createElement('div');
+            item.className = 'parent-progress-row';
+            item.textContent = `${mission.completed ? '✅' : '⭐'} ${mission.name}：${mission.progress}/${mission.target}（奖励 ${mission.reward} 星星）`;
+            missions.appendChild(item);
+        });
+
+        const achievements = document.createElement('div');
+        achievements.className = 'parent-section';
+        achievements.innerHTML = '<h4>已获得成就</h4>';
+        const labels = getAchievementLabels(dashboard.achievements);
+        achievements.appendChild(document.createTextNode(labels.length ? labels.map(item => `🏅 ${item.name}`).join('　') : '还没有成就，继续加油！'));
+
+        this.parentDashboardData.append(title, stats, missions, achievements);
+    }
+
+    isPopupVisible() {
+        return !this.cardPopup.classList.contains('hidden') || !this.wrongPopup.classList.contains('hidden')
+            || !this.userPopup.classList.contains('hidden');
+    }
+
+    resumeActiveTimer() {
+        if (this.answerLocked || this.isPopupVisible()) return;
+        if (this.currentGameMode === 'math' && this.currentScreen === 'game'
+            && this.game.currentDifficulty?.hasTimer) {
+            if (!this.timerController.running && !this.timerController.expired && this.timerController.timeLeft > 0) {
+                this.timerController.resume();
+                this.timerInterval = true;
+            }
+        }
+        if (this.currentGameMode === 'hanzi' && this.currentScreen === 'hanziGame'
+            && this.hanziGame.currentDifficultyConfig?.hasTimer) {
+            this.startHanziTimer();
+        }
+    }
+
     // End game
     endGame() {
+        this.gameToken += 1;
         this.stopTimer();
 
         // Save high score
         if (this.currentDifficulty) {
             storage.updateHighScore(this.currentDifficulty, this.game.score);
+            storage.recordSession({
+                mode: 'math',
+                skillId: `math_${this.currentDifficulty}`,
+                difficulty: this.currentDifficulty,
+                score: this.game.score
+            });
         }
 
         // Reset game screen
         this.screens.game.className = 'screen';
+        this.answerLocked = false;
     }
 
     // ===== Hanzi Game Methods =====
@@ -805,6 +1193,9 @@ class PonyMathGame {
     }
 
     startHanziGame(difficulty) {
+        this.stopTimer();
+        this.gameToken += 1;
+        this.answerLocked = false;
         const question = this.hanziGame.startGame(difficulty);
         const config = HANZI_DIFFICULTY[difficulty];
 
@@ -863,6 +1254,10 @@ class PonyMathGame {
     }
 
     handleHanziAnswer(selectedAnswer, button) {
+        if (this.answerLocked) return;
+        const gameToken = this.gameToken;
+        this.answerLocked = true;
+        this.stopTimer();
         // Disable all buttons temporarily
         const allButtons = this.hanziAnswerButtonsContainer.querySelectorAll('.hanzi-answer-btn');
         allButtons.forEach(btn => btn.disabled = true);
@@ -880,11 +1275,16 @@ class PonyMathGame {
                 button.getBoundingClientRect().top
             );
 
-            storage.recordGame(true);
+            storage.recordGame(true, {
+                mode: 'hanzi',
+                skillId: `hanzi_${this.currentDifficulty}`
+            });
 
             // Check for card reward
             if (this.hanziGame.shouldAwardCard()) {
-                setTimeout(() => this.awardHanziCard(), 600);
+                setTimeout(() => {
+                    if (gameToken === this.gameToken && this.currentScreen === 'hanziGame') this.awardHanziCard();
+                }, 600);
             }
         } else {
             button.classList.add('wrong');
@@ -906,7 +1306,10 @@ class PonyMathGame {
             // Show wrong answer popup with correct hanzi
             this.showWrongPopup(result.correctAnswer);
 
-            storage.recordGame(false);
+            storage.recordGame(false, {
+                mode: 'hanzi',
+                skillId: `hanzi_${this.currentDifficulty}`
+            });
         }
 
         // Update displays
@@ -917,12 +1320,15 @@ class PonyMathGame {
         // Next question after delay (only for correct answers)
         if (result.correct) {
             setTimeout(() => {
+                if (gameToken !== this.gameToken || this.currentScreen !== 'hanziGame') return;
                 const nextQuestion = this.hanziGame.generateQuestion();
                 this.updateHanziQuestion(nextQuestion);
+                this.answerLocked = false;
 
                 // Reset timer for timed modes
                 if (this.hanziGame.currentDifficultyConfig && this.hanziGame.currentDifficultyConfig.hasTimer) {
                     this.resetHanziTimer();
+                    if (!this.isPopupVisible()) this.startHanziTimer();
                 }
             }, 800);
         }
@@ -941,6 +1347,7 @@ class PonyMathGame {
 
     // Hanzi Timer
     startHanziTimer() {
+        this.stopTimer();
         this.updateHanziTimerDisplay();
         this.timerInterval = setInterval(() => {
             const result = this.hanziGame.tick();
@@ -964,6 +1371,9 @@ class PonyMathGame {
     }
 
     handleHanziTimeUp() {
+        if (this.answerLocked) return;
+        this.answerLocked = true;
+        this.stopTimer();
         const result = this.hanziGame.checkAnswer('');
         soundManager.play('wrong');
 
@@ -981,7 +1391,10 @@ class PonyMathGame {
 
         this.updateHanziScore();
         this.updateHanziStreak();
-        storage.recordGame(false);
+        storage.recordGame(false, {
+            mode: 'hanzi',
+            skillId: `hanzi_${this.currentDifficulty}`
+        });
     }
 
     // Hanzi displays
@@ -1013,15 +1426,23 @@ class PonyMathGame {
     }
 
     endHanziGame() {
+        this.gameToken += 1;
         this.stopTimer();
 
         // Save high score
         if (this.currentDifficulty) {
             storage.updateHighScore('hanzi_' + this.currentDifficulty, this.hanziGame.score);
+            storage.recordSession({
+                mode: 'hanzi',
+                skillId: `hanzi_${this.currentDifficulty}`,
+                difficulty: this.currentDifficulty,
+                score: this.hanziGame.score
+            });
         }
 
         // Reset game screen
         this.screens.hanziGame.className = 'screen';
+        this.answerLocked = false;
     }
 }
 

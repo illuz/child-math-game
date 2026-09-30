@@ -137,7 +137,7 @@ export class AnimationManager {
 
     // Show feedback emoji
     showFeedback(element, correct) {
-        const content = element.querySelector('#feedback-content') || element;
+        const content = element.querySelector('#feedback-content, .feedback-content') || element;
         content.textContent = correct ? '✨' : '💫';
         content.style.animation = 'none';
         content.offsetHeight; // Trigger reflow
